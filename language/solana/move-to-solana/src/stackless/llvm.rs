@@ -16,7 +16,7 @@
 use libc::abort;
 use llvm_extra_sys::*;
 use llvm_sys::{core::*, prelude::*, target::*, target_machine::*, LLVMOpcode, LLVMUnnamedAddr};
-use log::debug;
+use log::{debug, warn};
 use move_core_types::u256;
 use num_traits::{PrimInt, ToPrimitive};
 
@@ -1512,10 +1512,26 @@ impl Target {
         }
     }
 
-    pub fn create_target_machine(&self, triple: &str, cpu: &str, features: &str) -> TargetMachine {
+    fn map_opt_level(opt_level: &str) -> LLVMCodeGenOptLevel {
+        match opt_level {
+            "none" => LLVMCodeGenOptLevel::LLVMCodeGenLevelNone,
+            "less" => LLVMCodeGenOptLevel::LLVMCodeGenLevelLess,
+            "default" => LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
+            "aggressive" => LLVMCodeGenOptLevel::LLVMCodeGenLevelAggressive,
+            _ => {
+                warn!("Invalid opt level: {opt_level}, defaulting to \'none\'");
+                LLVMCodeGenOptLevel::LLVMCodeGenLevelNone
+            }
+        }
+    }
+    pub fn create_target_machine(
+        &self,
+        triple: &str,
+        cpu: &str,
+        features: &str,
+        opt_level: &str,
+    ) -> TargetMachine {
         unsafe {
-            // fixme some of these should be params
-            let level = LLVMCodeGenOptLevel::LLVMCodeGenLevelNone;
             let reloc = LLVMRelocMode::LLVMRelocPIC;
             let code_model = LLVMCodeModel::LLVMCodeModelDefault;
 
@@ -1524,7 +1540,7 @@ impl Target {
                 triple.cstr(),
                 cpu.cstr(),
                 features.cstr(),
-                level,
+                Self::map_opt_level(opt_level),
                 reloc,
                 code_model,
             );
